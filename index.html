@@ -196,7 +196,7 @@
 <body>
 <header>
   <div class="bar">
-    <div class="brand"><span class="dot"></span><h1>좌석배치도</h1><span class="ver" id="verTag" title="이 값이 보이면 최신 버전이 배포된 것입니다">v2026.07</span></div>
+    <div class="brand"><span class="dot"></span><h1>좌석배치도</h1><span class="ver" id="verTag" title="이 값이 보이면 최신 버전이 배포된 것입니다">v2026.07b</span></div>
     <div class="occ"><div class="meter"><i id="occBar"></i></div><div class="txt"><div>전체 <b id="occText">0 / 0</b> · <span id="occPct">0%</span></div><div class="floor">현재 <b id="occFloorName">–</b> · <span id="occFloorText">0 / 0</span> · <span id="occFloorPct">0%</span></div></div></div>
     <div class="tools">
       <div class="search"><i class="ic">⌕</i><input id="search" placeholder="이름 검색" autocomplete="off"/></div>
@@ -796,9 +796,34 @@ function setP(k,v){const el=selectedEl();if(!el)return;el[k]=v;const d=canvas.qu
   clearTimeout(setT);setT=setTimeout(()=>{snapshot();save();},400);}
 function dupSel(){const els=selectedEls();if(!els.length)return;snapshot();const ns=[];els.forEach(el=>{const c=JSON.parse(JSON.stringify(el));c.id=uid();c.x+=16;c.y+=16;c.z=maxZ()+1;page().els.push(c);ns.push(c.id);});sel=new Set(ns);render();buildPanel();save();}
 function delSel(){if(!sel.size)return;snapshot();page().els=page().els.filter(e=>!sel.has(e.id));sel.clear();render();buildPanel();save();}
-function copySel(){const els=selectedEls();if(!els.length)return;clip=els.map(e=>JSON.parse(JSON.stringify(e)));const xs=clip.map(e=>e.x),ys=clip.map(e=>e.y);clipBase={x:Math.min(...xs),y:Math.min(...ys)};toast(clip.length+'개 복사됨');}
-function pasteClip(){if(!clip.length)return;snapshot();const tx=snapv((lastMouse.x||80)-clipBase.x),ty=snapv((lastMouse.y||80)-clipBase.y);const ns=[];clip.forEach(c=>{const e=JSON.parse(JSON.stringify(c));e.id=uid();e.x=c.x+tx;e.y=c.y+ty;e.z=maxZ()+1;page().els.push(e);ns.push(e.id);});sel=new Set(ns);render();buildPanel();save();toast('붙여넣음');}
+function seatmapPayload(){const els=selectedEls();if(!els.length)return null;
+  return JSON.stringify({__seatmap__:1,v:1,els:els.map(e=>JSON.parse(JSON.stringify(e)))});}
+function parseSeatmap(text){if(!text||text.indexOf('__seatmap__')<0)return null;
+  try{const o=JSON.parse(text.trim());if(o&&o.__seatmap__&&Array.isArray(o.els)&&o.els.length)return o;}catch(_){}
+  const i=text.indexOf('{'),j=text.lastIndexOf('}');
+  if(i>=0&&j>i){try{const o=JSON.parse(text.slice(i,j+1));if(o&&o.__seatmap__&&o.els)return o;}catch(e){}}
+  return null;}
+function pasteEls(els){if(!els||!els.length)return;snapshot();
+  const ns=[];els.forEach(c=>{const e=JSON.parse(JSON.stringify(c));e.id=uid();e.z=maxZ()+1;page().els.push(e);ns.push(e.id);});
+  sel=new Set(ns);render();buildPanel();save();toast(ns.length+'개 붙여넣음 (원래 위치 그대로)');}
+function copySel(){const els=selectedEls();if(!els.length)return;clip=els.map(e=>JSON.parse(JSON.stringify(e)));
+  const p=seatmapPayload();if(p){try{navigator.clipboard&&navigator.clipboard.writeText(p);}catch(_){}}
+  toast(clip.length+'개 복사됨 · 다른 탭에도 Ctrl+V 가능');}
+function pasteClip(){ if(clip&&clip.length)pasteEls(clip); }
 function cutSel(){copySel();delSel();}
+/* 시스템 클립보드로 탭 간 복사/붙여넣기 */
+function inField(t){return t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable);}
+document.addEventListener('copy',e=>{ if(mode!=='edit'||inField(e.target)||!sel.size)return;
+  const p=seatmapPayload();if(!p)return; try{e.clipboardData.setData('text/plain',p);e.preventDefault();}catch(_){}
+  clip=selectedEls().map(x=>JSON.parse(JSON.stringify(x)));toast(clip.length+'개 복사됨 · 다른 탭에도 Ctrl+V 가능'); });
+document.addEventListener('cut',e=>{ if(mode!=='edit'||inField(e.target)||!sel.size)return;
+  const p=seatmapPayload();if(!p)return; try{e.clipboardData.setData('text/plain',p);e.preventDefault();}catch(_){}
+  clip=selectedEls().map(x=>JSON.parse(JSON.stringify(x)));delSel(); });
+document.addEventListener('paste',e=>{ if(mode!=='edit'||inField(e.target))return;
+  let text='';try{text=(e.clipboardData||window.clipboardData).getData('text');}catch(_){}
+  const data=parseSeatmap(text);
+  if(data){e.preventDefault();pasteEls(data.els);return;}
+  if(clip&&clip.length){e.preventDefault();pasteEls(clip);} });
 
 /* ============ 도구 선택 ============ */
 function setTool(t){tool=t;document.querySelectorAll('.tbtn[data-tool]').forEach(b=>b.classList.toggle('on',b.dataset.tool===t));
@@ -1113,9 +1138,6 @@ document.addEventListener('keydown',e=>{
   if(cmd&&e.key.toLowerCase()==='z'){e.preventDefault();e.shiftKey?redo():undo();return;}
   if(cmd&&e.key.toLowerCase()==='y'){e.preventDefault();redo();return;}
   if(mode!=='edit')return;
-  if(cmd&&e.key.toLowerCase()==='c'){e.preventDefault();copySel();return;}
-  if(cmd&&e.key.toLowerCase()==='v'){e.preventDefault();pasteClip();return;}
-  if(cmd&&e.key.toLowerCase()==='x'){e.preventDefault();cutSel();return;}
   if(cmd&&e.key.toLowerCase()==='d'){e.preventDefault();dupSel();return;}
   if(cmd&&e.key.toLowerCase()==='a'){e.preventDefault();selectAll();return;}
   if((e.key==='Delete'||e.key==='Backspace')&&sel.size){e.preventDefault();delSel();return;}
