@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
 <title>좌석배치도</title>
 <style>
   :root{
@@ -23,6 +26,7 @@
   .brand{display:flex; align-items:baseline; gap:9px;}
   .brand .dot{width:9px;height:9px;border-radius:2px;background:var(--accent);transform:translateY(1px);}
   .brand h1{font-size:15px;font-weight:600;margin:0;letter-spacing:-.01em;}
+  .brand .ver{font-size:10px;color:#6b7078;margin-left:8px;letter-spacing:.02em;}
   .occ{display:flex;align-items:center;gap:9px;margin-left:auto;}
   .occ .meter{width:130px;height:8px;border-radius:99px;background:#33373f;overflow:hidden;}
   .occ .meter i{display:block;height:100%;background:var(--accent);width:0;transition:width .35s;}
@@ -192,7 +196,7 @@
 <body>
 <header>
   <div class="bar">
-    <div class="brand"><span class="dot"></span><h1>좌석배치도</h1></div>
+    <div class="brand"><span class="dot"></span><h1>좌석배치도</h1><span class="ver" id="verTag" title="이 값이 보이면 최신 버전이 배포된 것입니다">v2026.07</span></div>
     <div class="occ"><div class="meter"><i id="occBar"></i></div><div class="txt"><div>전체 <b id="occText">0 / 0</b> · <span id="occPct">0%</span></div><div class="floor">현재 <b id="occFloorName">–</b> · <span id="occFloorText">0 / 0</span> · <span id="occFloorPct">0%</span></div></div></div>
     <div class="tools">
       <div class="search"><i class="ic">⌕</i><input id="search" placeholder="이름 검색" autocomplete="off"/></div>
