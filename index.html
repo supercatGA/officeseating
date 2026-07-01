@@ -156,6 +156,7 @@
   .dchip:hover{border-color:#bdb9ad;}
   .dchip.on{background:var(--accent);border-color:var(--accent);color:#062b16;font-weight:600;}
   .dchip.team.on{background:#2f7bff;border-color:#2f7bff;color:#fff;}
+  .dchip.part.on{background:#9b5bd6;border-color:#9b5bd6;color:#fff;}
   .dchip .c{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle;}
   #fxLayer{position:absolute;inset:0;pointer-events:none;z-index:55;}
   .areabox{position:absolute;border:2px dashed var(--accent);border-radius:14px;background:rgba(0,200,83,.06);}
@@ -349,7 +350,7 @@ const PAGE_W=1400, PAGE_H=900;
 let state={pages:[], settings:{teamId:''}};
 let cur=0, mode='view', tool='select', scale=0.7, panX=80, panY=40, snap=true;
 let sel=new Set(), clip=[], clipBase=null, lastMouse={x:80,y:80}, spaceDown=false, activeFilter=null;
-function seatMatch(el){ if(!activeFilter)return false; const v=(activeFilter.t==='div'?el.div:el.team)||''; return v===activeFilter.v; }
+function seatMatch(el){ if(!activeFilter)return false; const v=(activeFilter.t==='div'?el.div:activeFilter.t==='team'?el.team:el.part)||''; return v===activeFilter.v; }
 const hist=[]; let histi=-1;
 
 function page(){return state.pages[cur];}
@@ -845,18 +846,20 @@ $('#modeBtn').onclick=()=>{
 function deptColor(n){let h=0;for(const c of (n||''))h=(h*31+c.charCodeAt(0))>>>0;return AVATAR[h%AVATAR.length];}
 function curDivs(){const s=new Set();page().els.forEach(e=>{if(e.k==='seat'&&e.div&&e.div.trim())s.add(e.div);});return [...s].sort();}
 function curTeams(){const s=new Set();page().els.forEach(e=>{if(e.k==='seat'&&e.team&&e.team.trim())s.add(e.team);});return [...s].sort();}
+function curParts(){const s=new Set();page().els.forEach(e=>{if(e.k==='seat'&&e.part&&e.part.trim())s.add(e.part);});return [...s].sort();}
 function chipHTML(label,t,v){
   const on = v===null ? !activeFilter : (activeFilter&&activeFilter.t===t&&activeFilter.v===v);
   const dot = v===null ? '' : `<span class="c" style="background:${deptColor(v)}"></span>`;
   return `<button class="dchip ${t}${on?' on':''}" data-t="${t}" data-v="${v===null?'':esc(v)}">${dot}${esc(label)}</button>`;
 }
 function buildDeptBar(){
-  const bar=$('#deptbar');const divs=curDivs(),teams=curTeams();
-  if(!divs.length&&!teams.length){bar.innerHTML='<span class="lab" style="width:auto">이 층에 등록된 부서가 없어요 — 관리자 → 데이터 관리에서 실/팀을 입력하세요.</span>';return;}
+  const bar=$('#deptbar');const divs=curDivs(),teams=curTeams(),parts=curParts();
+  if(!divs.length&&!teams.length&&!parts.length){bar.innerHTML='<span class="lab" style="width:auto">이 층에 등록된 부서가 없어요 — 관리자 → 데이터 관리에서 실/팀/파트를 입력하세요.</span>';return;}
   let html='<div class="drow"><span class="lab">실</span>'+chipHTML('전체','div',null);
   divs.forEach(d=>html+=chipHTML(d,'div',d));
   html+='</div>';
   if(teams.length){ html+='<div class="drow"><span class="lab">팀</span>'; teams.forEach(t=>html+=chipHTML(t,'team',t)); html+='</div>'; }
+  if(parts.length){ html+='<div class="drow"><span class="lab">파트</span>'; parts.forEach(t=>html+=chipHTML(t,'part',t)); html+='</div>'; }
   bar.innerHTML=html;
   bar.querySelectorAll('.dchip').forEach(c=>{c.onclick=()=>{
     const t=c.dataset.t,v=c.dataset.v||'';
@@ -895,15 +898,20 @@ function clearFx(){$('#fxLayer').innerHTML='';}
 /* ===== 인물 카드(라이브) ===== */
 const person=$('#person');
 function hidePerson(){person.classList.remove('show');}
+const TWO_SURNAMES=['남궁','황보','제갈','선우','사공','서문','독고','동방','망절','서장'];
+function givenName(name){name=(name||'').trim();if(!name)return name;
+  if(/[A-Za-z]/.test(name))return name;               /* 영문 이름은 그대로 */
+  if(name.length>=3&&TWO_SURNAMES.includes(name.slice(0,2)))return name.slice(2);
+  return name.length>=2?name.slice(1):name; }
 function showPerson(el,div){
   const c=avColor(el.name);
+  const gname=givenName(el.name)||el.name||'?';
   const role=[el.div,el.team,el.part].filter(Boolean).join(' › ');
-  person.innerHTML=`<div class="ava" style="background:${c}">${esc((el.name||'?').slice(0,1))}</div>
-    <h3>${esc(el.name)}</h3>${role?`<p class="role">${esc(role)}</p>`:''}
+  person.innerHTML=`<div class="ava" style="background:${c}">${esc(gname.slice(0,1))}</div>
+    <h3>${esc(gname)}</h3>${role?`<p class="role">${esc(role)}</p>`:''}
     ${el.task?`<div class="field"><div class="k">담당업무</div><div class="v">${esc(el.task)}</div></div>`:''}
-    ${el.slack?`<div class="field"><div class="k">슬랙 ID</div><div class="v" style="font-family:ui-monospace,monospace;word-break:break-all">${esc(el.slack)}</div></div>`:'<div class="field"><div class="k">슬랙</div><div class="v" style="color:#aaa">미등록</div></div>'}
-    ${(el.div||el.team)?'':'<div class="field"><div class="k">소속</div><div class="v" style="color:#aaa">미등록</div></div>'}
-    <div class="act"><button id="pc-close">닫기</button><button class="slack" id="pc-slack" ${el.slack?'':'disabled'}>슬랙 연결하기</button></div>`;
+    ${(el.div||el.team||el.part)?'':'<div class="field"><div class="k">소속</div><div class="v" style="color:#aaa">미등록</div></div>'}
+    <div class="act"><button id="pc-close">닫기</button><button class="slack" id="pc-slack" ${el.slack?'':'disabled'}>슬랙 보내기</button></div>`;
   person.classList.add('show');
   const r=div.getBoundingClientRect();let left=r.left,top=r.bottom+8;const pw=244,ph=person.offsetHeight||220;
   if(left+pw>window.innerWidth-10)left=window.innerWidth-pw-10;
