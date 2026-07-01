@@ -275,7 +275,7 @@
 
 <div class="modal" id="dataModal"><div class="box bigbox">
   <h2>데이터 관리</h2>
-  <p>이름이 있는 좌석의 <b>부서(실/팀)·담당업무·슬랙 ID</b>를 한 곳에서 관리해요. 표에서 바로 고치거나, <b>엑셀 업로드</b> 또는 CSV로 한꺼번에 올릴 수 있어요. (이름이 같으면 갱신, 없으면 <b>새 좌석으로 추가</b>)</p>
+  <p>이름이 있는 좌석의 <b>부서(실/팀/파트)·담당업무·슬랙 ID</b>를 한 곳에서 관리해요. 표에서 바로 고치거나, <b>엑셀 업로드</b> 또는 CSV로 한꺼번에 올릴 수 있어요. (이름이 같으면 갱신, 없으면 <b>새 좌석으로 추가</b>)</p>
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px;padding:11px;background:#f4f8f5;border:1px solid #d8eadf;border-radius:10px;">
     <span style="font-size:12.5px;color:#3a5;font-weight:600;">엑셀로 추가/수정</span>
     <button class="minibtn" id="tmplBtn">① 양식(.xlsx) 받기</button>
@@ -285,7 +285,7 @@
   </div>
   <input id="dataSearch" placeholder="표에서 이름·부서 찾기" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:10px;outline:none;"/>
   <div class="scrolltbl"><table class="dtable" id="dtable"></table></div>
-  <label style="font-size:11.5px;color:var(--sub);">CSV / 붙여넣기 — 형식: <span class="mono">이름,실,팀,담당업무,슬랙ID,층</span> (탭 또는 쉼표 구분, 첫 줄 머리글·층 칸은 선택)</label>
+  <label style="font-size:11.5px;color:var(--sub);">CSV / 붙여넣기 — 형식: <span class="mono">이름,실,팀,파트,담당업무,슬랙ID,층</span> (탭 또는 쉼표 구분, 첫 줄 머리글·층 칸은 선택)</label>
   <textarea id="csvText" spellcheck="false" style="width:100%;height:88px;border:1px solid var(--line);border-radius:8px;padding:9px;font-size:11.5px;font-family:ui-monospace,monospace;margin-top:5px;outline:none;"></textarea>
   <div class="acts">
     <button id="csvFill">현재 데이터를 CSV로</button>
@@ -674,7 +674,7 @@ let defWall=false;
 function startDraw(e){
   const p=s2w(e.clientX,e.clientY);
   let el;
-  if(tool==='seat'){ el={id:uid(),k:'seat',x:snapv(p.x),y:snapv(p.y),w:0,h:0,z:maxZ()+1,name:'',slack:'',div:'',team:'',task:'',fs:15}; defWall=false; }
+  if(tool==='seat'){ el={id:uid(),k:'seat',x:snapv(p.x),y:snapv(p.y),w:0,h:0,z:maxZ()+1,name:'',slack:'',div:'',team:'',part:'',task:'',fs:15}; defWall=false; }
   else { const st=defStyle(tool); defWall=(tool==='wall'); el=Object.assign({id:uid(),k:'shape',x:snapv(p.x),y:snapv(p.y),w:0,h:0,z:maxZ()+1,text:tool==='text'?'텍스트':'',op:1},st); }
   page().els.push(el);
   const div=elDiv(el);canvas.appendChild(div);
@@ -742,6 +742,7 @@ function buildPanel(){
       <label>이름</label><input type="text" id="p-name" value="${esc(el.name||'')}" placeholder="홍길동"/>
       <label>실 / 본부</label><input type="text" id="p-div" value="${esc(el.div||'')}" placeholder="미래인재실"/>
       <label>팀 / 부서</label><input type="text" id="p-team" value="${esc(el.team||'')}" placeholder="인사총무팀"/>
+      <label>파트</label><input type="text" id="p-part" value="${esc(el.part||'')}" placeholder="총무파트"/>
       <label>담당업무</label><input type="text" id="p-task" value="${esc(el.task||'')}" placeholder="총무·시설"/>
       <label>슬랙 멤버 ID 또는 DM 링크</label><input type="text" id="p-slack" value="${esc(el.slack||'')}" placeholder="U012ABC34"/>
       <label>글꼴</label>${fontSelect('p-font',el.font)}
@@ -751,7 +752,7 @@ function buildPanel(){
       <label>회전(°)</label><input type="number" id="p-rot" value="${Math.round(el.rot||0)}" step="5"/>
       <div class="prow"><button id="p-dup">복제</button><button class="del" id="p-del">삭제</button></div>`;
     bind('p-name','input',v=>setP('name',v)); bind('p-slack','input',v=>setP('slack',v));
-    bind('p-div','input',v=>setP('div',v)); bind('p-team','input',v=>setP('team',v)); bind('p-task','input',v=>setP('task',v));
+    bind('p-div','input',v=>setP('div',v)); bind('p-team','input',v=>setP('team',v)); bind('p-part','input',v=>setP('part',v)); bind('p-task','input',v=>setP('task',v));
     $('#p-font').onchange=()=>setP('font',$('#p-font').value); bind('p-color','input',v=>setP('color',v));
     bind('p-fs','input',v=>setP('fs',Math.max(8,Math.min(60,+v||15))));
     $('#p-bold').onclick=()=>{const e=selectedEl();if(!e)return;setP('bold',!e.bold);$('#p-bold').classList.toggle('on',!!e.bold);};
@@ -896,7 +897,7 @@ const person=$('#person');
 function hidePerson(){person.classList.remove('show');}
 function showPerson(el,div){
   const c=avColor(el.name);
-  const role=[el.div,el.team].filter(Boolean).join(' › ');
+  const role=[el.div,el.team,el.part].filter(Boolean).join(' › ');
   person.innerHTML=`<div class="ava" style="background:${c}">${esc((el.name||'?').slice(0,1))}</div>
     <h3>${esc(el.name)}</h3>${role?`<p class="role">${esc(role)}</p>`:''}
     ${el.task?`<div class="field"><div class="k">담당업무</div><div class="v">${esc(el.task)}</div></div>`:''}
@@ -962,13 +963,14 @@ async function ghPublish(){
 /* ===== 데이터 관리 ===== */
 function peopleSeats(){const a=[];state.pages.forEach((p,pi)=>p.els.forEach(e=>{if(e.k==='seat'&&e.name&&e.name.trim())a.push({pi,el:e});}));return a;}
 function buildDataTable(filter){
-  const t=$('#dtable');const rows=peopleSeats().filter(r=>{if(!filter)return true;const q=filter.toLowerCase();return (r.el.name+' '+(r.el.div||'')+' '+(r.el.team||'')).toLowerCase().includes(q);});
-  let html='<thead><tr><th>층</th><th>이름</th><th>실/본부</th><th>팀</th><th>담당업무</th><th>슬랙 ID</th></tr></thead><tbody>';
+  const t=$('#dtable');const rows=peopleSeats().filter(r=>{if(!filter)return true;const q=filter.toLowerCase();return (r.el.name+' '+(r.el.div||'')+' '+(r.el.team||'')+' '+(r.el.part||'')).toLowerCase().includes(q);});
+  let html='<thead><tr><th>층</th><th>이름</th><th>실/본부</th><th>팀</th><th>파트</th><th>담당업무</th><th>슬랙 ID</th></tr></thead><tbody>';
   rows.forEach(r=>{const id=r.el.id;
     html+=`<tr data-id="${id}"><td class="fl">${esc(state.pages[r.pi].name)}</td>
       <td class="fl">${esc(r.el.name)}</td>
       <td><input data-k="div" value="${esc(r.el.div||'')}" placeholder="미래인재실"/></td>
       <td><input data-k="team" value="${esc(r.el.team||'')}" placeholder="인사총무팀"/></td>
+      <td><input data-k="part" value="${esc(r.el.part||'')}" placeholder="총무파트"/></td>
       <td><input data-k="task" value="${esc(r.el.task||'')}" placeholder="총무"/></td>
       <td><input data-k="slack" value="${esc(r.el.slack||'')}" placeholder="U012ABC34"/></td></tr>`;
   });
@@ -980,8 +982,8 @@ function findSeat(id){for(const p of state.pages){const e=p.els.find(x=>x.id===i
 $('#dataBtn').onclick=()=>{$('#dataSearch').value='';buildDataTable('');$('#dataModal').classList.add('show');};
 $('#dataClose').onclick=()=>{$('#dataModal').classList.remove('show');buildDeptBar();render();};
 $('#dataSearch').addEventListener('input',e=>buildDataTable(e.target.value.trim()));
-$('#csvFill').onclick=()=>{const rows=peopleSeats();const lines=['이름,실,팀,담당업무,슬랙ID,층'];
-  rows.forEach(r=>lines.push([r.el.name,r.el.div||'',r.el.team||'',r.el.task||'',r.el.slack||'',state.pages[r.pi].name].map(csvCell).join(',')));
+$('#csvFill').onclick=()=>{const rows=peopleSeats();const lines=['이름,실,팀,파트,담당업무,슬랙ID,층'];
+  rows.forEach(r=>lines.push([r.el.name,r.el.div||'',r.el.team||'',r.el.part||'',r.el.task||'',r.el.slack||'',state.pages[r.pi].name].map(csvCell).join(',')));
   $('#csvText').value=lines.join('\n');toast('표를 CSV로 채웠어요');};
 function csvCell(s){s=String(s||'');return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
 function parseCSV(text){const out=[];text.split(/\r?\n/).forEach(line=>{if(!line.trim())return;
@@ -997,10 +999,10 @@ function applyRows(rows){
   snapshot();
   let updated=0; const news=[];
   for(let i=start;i<rows.length;i++){const r=rows[i]||[];const nm=(r[0]||'').toString().trim();if(!nm)continue;
-    const dv=(r[1]||'').toString().trim(),tm=(r[2]||'').toString().trim(),tk=(r[3]||'').toString().trim(),sl=(r[4]||'').toString().trim(),fl=(r[5]||'').toString().trim();
+    const dv=(r[1]||'').toString().trim(),tm=(r[2]||'').toString().trim(),pt=(r[3]||'').toString().trim(),tk=(r[4]||'').toString().trim(),sl=(r[5]||'').toString().trim(),fl=(r[6]||'').toString().trim();
     let found=false;
-    state.pages.forEach(p=>p.els.forEach(e=>{if(e.k==='seat'&&e.name===nm){e.div=dv;e.team=tm;e.task=tk;if(sl)e.slack=sl;updated++;found=true;}}));
-    if(!found) news.push({nm,dv,tm,tk,sl,fl});
+    state.pages.forEach(p=>p.els.forEach(e=>{if(e.k==='seat'&&e.name===nm){e.div=dv;e.team=tm;e.part=pt;e.task=tk;if(sl)e.slack=sl;updated++;found=true;}}));
+    if(!found) news.push({nm,dv,tm,pt,tk,sl,fl});
   }
   // 신규는 지정 층(없으면 현재 층)에 격자로 배치
   const byPage={};
@@ -1010,7 +1012,7 @@ function applyRows(rows){
     if(els.length){let x1=-1e9,y0=1e9;els.forEach(e=>{x1=Math.max(x1,e.x+e.w);y0=Math.min(y0,e.y);});ax=x1+50;ay=Math.max(40,y0);}
     let zmax=0;els.forEach(e=>{if(e.z>zmax)zmax=e.z;});
     byPage[pi].forEach((n,i)=>{const col=i%4,row=Math.floor(i/4);
-      els.push({id:uid(),k:'seat',x:ax+col*72,y:ay+row*42,w:64,h:34,z:++zmax+300,name:n.nm,slack:n.sl||'',div:n.dv||'',team:n.tm||'',task:n.tk||'',rot:0});});
+      els.push({id:uid(),k:'seat',x:ax+col*72,y:ay+row*42,w:64,h:34,z:++zmax+300,name:n.nm,slack:n.sl||'',div:n.dv||'',team:n.tm||'',part:n.pt||'',task:n.tk||'',rot:0});});
   });
   save();buildDataTable($('#dataSearch').value.trim());buildDeptBar();render();
   const addN=news.length;
@@ -1041,17 +1043,17 @@ $('#fileInput').addEventListener('change',e=>{
 });
 /* 양식 받기 */
 $('#tmplBtn').onclick=()=>{
-  const header=['이름','실','팀','담당업무','슬랙ID','층'];
-  const sample=[['오재훈','미래인재실','인사총무팀','총무·시설','U012ABC34','2F'],['홍병기','품질본부','검증팀','테스트','U087XYZ','3F']];
+  const header=['이름','실','팀','파트','담당업무','슬랙ID','층'];
+  const sample=[['오재훈','미래인재실','인사총무팀','총무파트','총무·시설','U012ABC34','2F'],['홍병기','품질본부','검증팀','검증파트','테스트','U087XYZ','3F']];
   if(typeof XLSX!=='undefined'){
     const ws=XLSX.utils.aoa_to_sheet([header,...sample]);
-    ws['!cols']=[{wch:10},{wch:14},{wch:14},{wch:16},{wch:14},{wch:6}];
+    ws['!cols']=[{wch:10},{wch:14},{wch:14},{wch:12},{wch:16},{wch:14},{wch:6}];
     const guide=XLSX.utils.aoa_to_sheet([
       ['좌석배치도 명단 양식 — 작성 안내'],[''],
       ['1. ‘명단’ 시트의 첫 줄(머리글)은 그대로 두고, 둘째 줄부터 입력하세요.'],
       ['2. 이름: 좌석에 표시된 이름과 같으면 그 사람의 정보가 갱신됩니다.'],
       ['3. 좌석에 없는 새 이름은 ‘층’에 적은 층(비우면 현재 층)에 새 좌석으로 추가됩니다. 관리자에서 위치를 드래그해 옮기세요.'],
-      ['4. 실/팀: 부서 강조에 쓰입니다. 예) 실=미래인재실, 팀=인사총무팀'],
+      ['4. 실/팀/파트: 소속 표시에 쓰입니다. 예) 실=미래인재실, 팀=인사총무팀, 파트=총무파트'],
       ['5. 슬랙ID: 슬랙 프로필 → 더보기 → ‘멤버 ID 복사’(보통 U로 시작).'],
       ['6. 층: 예) B1, 1F, 2F … 좌석배치도의 층 이름과 똑같이 적으세요.'],
     ]);
@@ -1134,7 +1136,7 @@ function sampleStateFromFloors(){
     });
     (f.seats||[]).forEach(s=>{
       if(s.type==='label') els.push({id:uid(),k:'shape',shp:'text',x:s.x,y:s.y+8,w:64,h:20,z:200+z++,fill:'transparent',stroke:'transparent',sw:0,rad:0,text:s.name,fs:11,color:'#8a877d',op:1});
-      else els.push({id:uid(),k:'seat',x:s.x,y:s.y,w:64,h:34,z:300+z++,name:s.name||'',slack:'',div:'',team:'',task:''});
+      else els.push({id:uid(),k:'seat',x:s.x,y:s.y,w:64,h:34,z:300+z++,name:s.name||'',slack:'',div:'',team:'',part:'',task:''});
     });
     pages.push({id:uid(),name:key,els});
   });
@@ -1187,7 +1189,7 @@ window.__FLOORS__ = (function(){
     state.pages=saved.pages; state.settings=saved.settings||state.settings;
   } else state=blankState();
   if(state.settings.adminPin==null)state.settings.adminPin='';if(state.settings.managerPin==null)state.settings.managerPin='';
-  state.pages.forEach(p=>p.els.forEach(e=>{if(e.k==='seat'){if(e.div==null)e.div='';if(e.team==null)e.team='';if(e.task==null)e.task='';if(e.fs==null)e.fs=15;}
+  state.pages.forEach(p=>p.els.forEach(e=>{if(e.k==='seat'){if(e.div==null)e.div='';if(e.team==null)e.team='';if(e.part==null)e.part='';if(e.task==null)e.task='';if(e.fs==null)e.fs=15;}
     if(e.k==='shape'&&(e.wall||e.fill==='#3a3d44')){e.wall=true;e.fill='#6b7078';e.stroke='#6b7078';}}));
   if(!state.settings.mig2){
     state.pages.forEach(p=>p.els.forEach(e=>{
