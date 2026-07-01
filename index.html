@@ -257,6 +257,16 @@
   <input id="adminPin" placeholder="예: 1234" autocomplete="off"/>
   <label>슬랙 워크스페이스 팀 ID <span style="color:#bbb">(선택, 예: T01ABCDE)</span></label>
   <input id="teamId" placeholder="T01ABCDE"/>
+  <div style="border-top:1px solid var(--line);margin:16px 0 4px;padding-top:14px;">
+    <h3 style="margin:0 0 6px;font-size:14px;">GitHub 게시 (사이트에 바로 저장)</h3>
+    <p style="margin:0 0 10px;">이 값을 넣어두면, 관리자 화면에서 <b>‘사이트에 게시’</b> 한 번으로 현재 배치가 저장소의 데이터 파일로 올라가고 모든 방문자에게 반영돼요. HTML을 다시 업로드할 필요가 없습니다.</p>
+    <label>저장소 <span style="color:#bbb">(owner/repo)</span></label>
+    <input id="ghRepo" placeholder="supercatga/officeseating" autocomplete="off"/>
+    <div class="two"><div><label>브랜치</label><input id="ghBranch" placeholder="main" autocomplete="off"/></div><div><label>데이터 파일</label><input id="ghPath" placeholder="data.json" autocomplete="off"/></div></div>
+    <label>GitHub 토큰 <span style="color:#bbb">(이 브라우저에만 저장 · 게시 때만 사용)</span></label>
+    <input id="ghToken" type="password" placeholder="github_pat_… 또는 ghp_…" autocomplete="off"/>
+    <p style="margin:8px 0 0;color:#a86;font-size:11px;">토큰은 저장소 콘텐츠 쓰기 권한만 가진 <b>Fine-grained PAT</b>를 권장해요. 토큰은 게시 파일에 포함되지 않고, 이 브라우저에만 저장됩니다. 공용 PC에서는 사용 후 지우세요.</p>
+  </div>
   <div class="acts"><button id="setCancel">닫기</button><button class="primary" id="setSave">저장</button></div>
 </div></div>
 
@@ -283,11 +293,13 @@
 
 <div class="modal" id="ioModal"><div class="box">
   <h2>저장 · 공유</h2>
-  <p><b>웹(GitHub 등)에 올려 모두에게 보여주려면</b> 아래 <b>‘게시용 HTML 내려받기’</b>로 현재 배치를 파일에 담아 받은 뒤, 그 <span class="mono">index.html</span>을 저장소에 올리세요. (지금 배치는 이 브라우저에만 저장돼 있어, 파일에 담지 않으면 다른 사람·다른 기기에서는 빈 화면으로 보입니다.)</p>
-  <div style="margin:2px 0 12px;"><button class="primary" id="publishBtn" style="width:100%;padding:11px;font-size:13.5px;">📦 게시용 HTML 내려받기 (index.html)</button></div>
-  <p style="margin-top:0;">또는 아래 데이터를 복사해 백업하거나, 다른 도면 데이터를 붙여넣어 불러올 수 있어요.</p>
-  <textarea id="ioText" spellcheck="false"></textarea>
-  <div class="acts"><button id="ioCopy">복사</button><button id="ioLoad">붙여넣기 불러오기</button><button class="primary" id="ioClose">닫기</button></div>
+  <p><b>사이트에서 관리하려면 이 버튼만 쓰면 돼요.</b> 현재 배치를 저장소 데이터 파일(<span class="mono">data.json</span>)로 바로 올려, 모든 방문자에게 반영합니다. (설정에서 GitHub 저장소·토큰을 먼저 입력하세요.)</p>
+  <div style="margin:2px 0 14px;"><button class="primary" id="ghPublishBtn" style="width:100%;padding:12px;font-size:14px;">🌐 사이트에 게시 (GitHub에 저장)</button></div>
+  <div style="border-top:1px solid var(--line);padding-top:12px;">
+    <p style="margin:0 0 8px;color:var(--sub);font-size:12px;">그 밖의 방법 — 데이터를 복사해 백업하거나, 다른 도면 데이터를 붙여넣어 불러오기. 또는 데이터를 통째로 담은 HTML 파일을 받아 최초 1회 업로드용으로 쓸 수 있어요.</p>
+    <textarea id="ioText" spellcheck="false"></textarea>
+    <div class="acts"><button id="ioCopy">복사</button><button id="ioLoad">붙여넣기 불러오기</button><button id="publishBtn">게시용 HTML 받기</button><button class="primary" id="ioClose">닫기</button></div>
+  </div>
   <div style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px;text-align:right;">
     <button class="btn ghost danger" id="resetAll" style="font-size:12px;color:#b14;border-color:#e3b3aa;">전부 비우기(빈 캔버스)</button>
   </div>
@@ -895,9 +907,38 @@ $('#search').addEventListener('input',e=>{const q=e.target.value.trim();
   const d=canvas.querySelector(`[data-id="${target.id}"]`);if(d)d.style.boxShadow='0 0 0 4px rgba(0,200,83,.45)';});
 
 /* ============ 모달 ============ */
-$('#settingsBtn').onclick=()=>{$('#adminPin').value=state.settings.adminPin||'';$('#teamId').value=state.settings.teamId||'';$('#setModal').classList.add('show');};
+$('#settingsBtn').onclick=()=>{$('#adminPin').value=state.settings.adminPin||'';$('#teamId').value=state.settings.teamId||'';
+  $('#ghRepo').value=state.settings.ghRepo||'';$('#ghBranch').value=state.settings.ghBranch||'main';$('#ghPath').value=state.settings.ghPath||'data.json';
+  $('#ghToken').value=ghToken();
+  $('#setModal').classList.add('show');};
 $('#setCancel').onclick=()=>$('#setModal').classList.remove('show');
-$('#setSave').onclick=()=>{state.settings.adminPin=$('#adminPin').value.trim();state.settings.teamId=$('#teamId').value.trim();$('#setModal').classList.remove('show');save();toast('설정을 저장했어요');};
+$('#setSave').onclick=()=>{state.settings.adminPin=$('#adminPin').value.trim();state.settings.teamId=$('#teamId').value.trim();
+  state.settings.ghRepo=$('#ghRepo').value.trim();state.settings.ghBranch=$('#ghBranch').value.trim()||'main';state.settings.ghPath=$('#ghPath').value.trim()||'data.json';
+  setGhToken($('#ghToken').value.trim());
+  $('#setModal').classList.remove('show');save();toast('설정을 저장했어요');};
+function ghToken(){try{return localStorage.getItem('eonju315_ghtoken')||'';}catch(e){return '';}}
+function setGhToken(v){try{if(v)localStorage.setItem('eonju315_ghtoken',v);else localStorage.removeItem('eonju315_ghtoken');}catch(e){}}
+async function ghPublish(){
+  const repo=(state.settings.ghRepo||'').trim(),branch=(state.settings.ghBranch||'main').trim()||'main',path=(state.settings.ghPath||'data.json').trim()||'data.json',token=ghToken().trim();
+  if(!repo||!token){toast('설정에서 GitHub 저장소와 토큰을 먼저 입력하세요');$('#setModal').classList.add('show');return;}
+  const api='https://api.github.com/repos/'+repo+'/contents/'+path.split('/').map(encodeURIComponent).join('/');
+  const headers={'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'};
+  toast('사이트에 게시 중…');
+  try{
+    let sha;
+    const g=await fetch(api+'?ref='+encodeURIComponent(branch),{headers});
+    if(g.status===200){const j=await g.json();sha=j.sha;}
+    else if(g.status===401||g.status===403){toast('토큰 권한이 없어요(콘텐츠 쓰기 권한 확인)');return;}
+    const data={pages:state.pages,settings:{teamId:state.settings.teamId||'',adminPin:state.settings.adminPin||'',ghRepo:repo,ghBranch:branch,ghPath:path},ts:Date.now()};
+    const json=JSON.stringify(data,null,1);
+    const content=btoa(unescape(encodeURIComponent(json)));
+    const body={message:'좌석배치도 업데이트 '+new Date().toLocaleString('ko-KR'),content,branch};
+    if(sha)body.sha=sha;
+    const p=await fetch(api,{method:'PUT',headers,body:JSON.stringify(body)});
+    if(p.ok){state.settings.seedTs=data.ts;save();toast('사이트에 게시했어요! 1분 내 반영됩니다');}
+    else{let m='';try{m=(await p.json()).message||'';}catch(e){}toast('게시 실패('+p.status+') '+m);}
+  }catch(err){toast('게시 오류 — 저장소명/토큰/네트워크를 확인하세요');console.error(err);}
+}
 
 /* ===== 데이터 관리 ===== */
 function peopleSeats(){const a=[];state.pages.forEach((p,pi)=>p.els.forEach(e=>{if(e.k==='seat'&&e.name&&e.name.trim())a.push({pi,el:e});}));return a;}
@@ -1008,21 +1049,27 @@ $('#tmplBtn').onclick=()=>{
 
 $('#ioBtn').onclick=()=>{$('#ioText').value=JSON.stringify({pages:state.pages,settings:state.settings},null,1);$('#ioModal').classList.add('show');};
 $('#ioClose').onclick=()=>$('#ioModal').classList.remove('show');
-async function publishHTML(){
-  let html;
-  try{ const res=await fetch(location.href,{cache:'no-store'}); html=await res.text(); }
-  catch(e){ toast('현재 페이지 소스를 읽지 못했어요. 파일을 웹서버(GitHub Pages 등)에 올린 상태에서 눌러 주세요.'); return; }
-  const data={pages:state.pages,settings:{teamId:state.settings.teamId||'',adminPin:state.settings.adminPin||''},ts:Date.now()};
-  let json=JSON.stringify(data).replace(/</g,'\\u003c');
-  const tag='<script id="seed">window.__SEED__='+json+';<\/script>';
-  if(/<script id="seed">[\s\S]*?<\/script>/.test(html)) html=html.replace(/<script id="seed">[\s\S]*?<\/script>/, ()=>tag);
-  else if(html.indexOf('</head>')>=0) html=html.replace('</head>', ()=>tag+'\n</head>');
-  else { toast('삽입 위치를 찾지 못했어요'); return; }
+function publishHTML(){
+  const data={pages:state.pages,settings:{teamId:state.settings.teamId||'',adminPin:state.settings.adminPin||'',ghRepo:state.settings.ghRepo||'',ghBranch:state.settings.ghBranch||'main',ghPath:state.settings.ghPath||'data.json'},ts:Date.now()};
+  const json=JSON.stringify(data).replace(/</g,'\\u003c');
+  const root=document.documentElement.cloneNode(true);
+  const seedEl=root.querySelector('#seed'); if(seedEl) seedEl.textContent='window.__SEED__='+json+';';
+  const cv=root.querySelector('#canvas'); if(cv) cv.querySelectorAll('.el').forEach(n=>n.remove());
+  ['#selLayer','#fxLayer','#person'].forEach(s=>{const n=root.querySelector(s);if(n)n.innerHTML='';});
+  root.querySelectorAll('.modal.show').forEach(m=>m.classList.remove('show'));
+  const pn=root.querySelector('#panel'); if(pn)pn.classList.remove('show');
+  const stg=root.querySelector('#stage'); if(stg)stg.classList.remove('edit');
+  const tb=root.querySelector('#toolbar'); if(tb)tb.classList.remove('show');
+  const db=root.querySelector('#deptbar'); if(db){db.classList.remove('show');db.innerHTML='';}
+  const et=root.querySelector('#editTools'); if(et)et.style.display='none';
+  const pcd=root.querySelector('#person'); if(pcd)pcd.classList.remove('show');
+  const html='<!DOCTYPE html>\n<html lang="ko">\n'+root.innerHTML+'\n</html>';
   const blob=new Blob([html],{type:'text/html;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='index.html';document.body.appendChild(a);a.click();a.remove();
-  toast('게시용 index.html을 내려받았어요 — GitHub에 올리면 모두가 이 배치를 봅니다');
+  toast('게시용 index.html을 내려받았어요');
 }
 $('#publishBtn').onclick=publishHTML;
+$('#ghPublishBtn').onclick=ghPublish;
 $('#ioCopy').onclick=async()=>{try{await navigator.clipboard.writeText($('#ioText').value);toast('복사했어요');}catch(e){$('#ioText').select();toast('Ctrl+C 로 복사');}};
 $('#ioLoad').onclick=()=>{try{const o=JSON.parse($('#ioText').value);if(!o.pages)throw 0;snapshot();state.pages=o.pages;state.settings=o.settings||state.settings;cur=0;sel.clear();$('#ioModal').classList.remove('show');buildPages();render();fit();save();toast('불러왔어요');}catch(e){toast('형식이 올바르지 않아요');}};
 $('#resetAll').onclick=()=>{if(!confirm('모든 도형과 좌석을 지우고 빈 캔버스로 시작할까요?'))return;snapshot();state=blankState();cur=0;sel.clear();activeFilter=null;$('#ioModal').classList.remove('show');buildPages();render();fit();save();};
@@ -1109,11 +1156,14 @@ window.__FLOORS__ = (function(){
 /* ============ 부팅 ============ */
 (async function init(){
   const saved=await Store.load();
+  let published=null;
+  try{const r=await fetch('data.json',{cache:'no-store'});if(r.ok){const j=await r.json();if(j&&j.pages&&j.pages.length)published=j;}}catch(_){}
   const seed=(window.__SEED__&&window.__SEED__.pages&&window.__SEED__.pages.length)?window.__SEED__:null;
+  const remote=published||seed;                       /* data.json 우선, 없으면 파일에 구운 시드 */
   const storedTs=saved&&saved.settings&&saved.settings.seedTs;
-  const useSeed = seed && ( !(saved&&saved.pages&&saved.pages.length) || (seed.ts && seed.ts!==storedTs) );
-  if(useSeed){
-    state.pages=seed.pages; state.settings=Object.assign({teamId:'',adminPin:''},seed.settings||{}); state.settings.seedTs=seed.ts||1;
+  const useRemote = remote && ( !(saved&&saved.pages&&saved.pages.length) || (remote.ts && remote.ts!==storedTs) );
+  if(useRemote){
+    state.pages=remote.pages; state.settings=Object.assign({teamId:'',adminPin:''},remote.settings||{}); state.settings.seedTs=remote.ts||1;
   } else if(saved&&saved.pages&&saved.pages.length){
     state.pages=saved.pages; state.settings=saved.settings||state.settings;
   } else state=blankState();
@@ -1122,7 +1172,7 @@ window.__FLOORS__ = (function(){
     if(e.k==='shape'&&(e.fill==='#3a3d44'||e.wall)){e.fill='#0e0f12';e.stroke='#0e0f12';e.wall=true;}}));
   cur=clamp(cur,0,state.pages.length-1);
   hist.length=0;hist.push(JSON.stringify(state.pages));histi=0;
-  if(useSeed)save();
+  if(useRemote)save();
   applyMode();setTool('select');buildPages();render();fit();
   $('#hint').innerHTML="<b>시작하기</b> — 누구나 보는 <b>라이브</b> 화면입니다. 우측 <b>관리자</b>로 들어가면 도면을 그리고 데이터를 올릴 수 있어요. 관리자 툴바의 <b>‘불러오기’</b>로 시작해 보세요.";
 })();
