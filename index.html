@@ -187,6 +187,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Nanum+Gothic&family=Nanum+Myeongjo&family=Nanum+Pen+Script&family=Gaegu&display=swap" rel="stylesheet">
+<script id="seed">window.__SEED__=null;/* 게시용 데이터가 여기에 구워집니다 */</script>
 </head>
 <body>
 <header>
@@ -282,7 +283,9 @@
 
 <div class="modal" id="ioModal"><div class="box">
   <h2>저장 · 공유</h2>
-  <p>도형·좌석·이름이 자동 저장돼요. 아래 데이터를 복사해 백업하거나, 다른 사람이 만든 도면을 붙여넣어 불러올 수 있어요.</p>
+  <p><b>웹(GitHub 등)에 올려 모두에게 보여주려면</b> 아래 <b>‘게시용 HTML 내려받기’</b>로 현재 배치를 파일에 담아 받은 뒤, 그 <span class="mono">index.html</span>을 저장소에 올리세요. (지금 배치는 이 브라우저에만 저장돼 있어, 파일에 담지 않으면 다른 사람·다른 기기에서는 빈 화면으로 보입니다.)</p>
+  <div style="margin:2px 0 12px;"><button class="primary" id="publishBtn" style="width:100%;padding:11px;font-size:13.5px;">📦 게시용 HTML 내려받기 (index.html)</button></div>
+  <p style="margin-top:0;">또는 아래 데이터를 복사해 백업하거나, 다른 도면 데이터를 붙여넣어 불러올 수 있어요.</p>
   <textarea id="ioText" spellcheck="false"></textarea>
   <div class="acts"><button id="ioCopy">복사</button><button id="ioLoad">붙여넣기 불러오기</button><button class="primary" id="ioClose">닫기</button></div>
   <div style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px;text-align:right;">
@@ -1005,6 +1008,21 @@ $('#tmplBtn').onclick=()=>{
 
 $('#ioBtn').onclick=()=>{$('#ioText').value=JSON.stringify({pages:state.pages,settings:state.settings},null,1);$('#ioModal').classList.add('show');};
 $('#ioClose').onclick=()=>$('#ioModal').classList.remove('show');
+async function publishHTML(){
+  let html;
+  try{ const res=await fetch(location.href,{cache:'no-store'}); html=await res.text(); }
+  catch(e){ toast('현재 페이지 소스를 읽지 못했어요. 파일을 웹서버(GitHub Pages 등)에 올린 상태에서 눌러 주세요.'); return; }
+  const data={pages:state.pages,settings:{teamId:state.settings.teamId||'',adminPin:state.settings.adminPin||''},ts:Date.now()};
+  let json=JSON.stringify(data).replace(/</g,'\\u003c');
+  const tag='<script id="seed">window.__SEED__='+json+';<\/script>';
+  if(/<script id="seed">[\s\S]*?<\/script>/.test(html)) html=html.replace(/<script id="seed">[\s\S]*?<\/script>/, ()=>tag);
+  else if(html.indexOf('</head>')>=0) html=html.replace('</head>', ()=>tag+'\n</head>');
+  else { toast('삽입 위치를 찾지 못했어요'); return; }
+  const blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='index.html';document.body.appendChild(a);a.click();a.remove();
+  toast('게시용 index.html을 내려받았어요 — GitHub에 올리면 모두가 이 배치를 봅니다');
+}
+$('#publishBtn').onclick=publishHTML;
 $('#ioCopy').onclick=async()=>{try{await navigator.clipboard.writeText($('#ioText').value);toast('복사했어요');}catch(e){$('#ioText').select();toast('Ctrl+C 로 복사');}};
 $('#ioLoad').onclick=()=>{try{const o=JSON.parse($('#ioText').value);if(!o.pages)throw 0;snapshot();state.pages=o.pages;state.settings=o.settings||state.settings;cur=0;sel.clear();$('#ioModal').classList.remove('show');buildPages();render();fit();save();toast('불러왔어요');}catch(e){toast('형식이 올바르지 않아요');}};
 $('#resetAll').onclick=()=>{if(!confirm('모든 도형과 좌석을 지우고 빈 캔버스로 시작할까요?'))return;snapshot();state=blankState();cur=0;sel.clear();activeFilter=null;$('#ioModal').classList.remove('show');buildPages();render();fit();save();};
@@ -1091,13 +1109,20 @@ window.__FLOORS__ = (function(){
 /* ============ 부팅 ============ */
 (async function init(){
   const saved=await Store.load();
-  if(saved&&saved.pages&&saved.pages.length){state.pages=saved.pages;state.settings=saved.settings||state.settings;}
-  else state=blankState();
+  const seed=(window.__SEED__&&window.__SEED__.pages&&window.__SEED__.pages.length)?window.__SEED__:null;
+  const storedTs=saved&&saved.settings&&saved.settings.seedTs;
+  const useSeed = seed && ( !(saved&&saved.pages&&saved.pages.length) || (seed.ts && seed.ts!==storedTs) );
+  if(useSeed){
+    state.pages=seed.pages; state.settings=Object.assign({teamId:'',adminPin:''},seed.settings||{}); state.settings.seedTs=seed.ts||1;
+  } else if(saved&&saved.pages&&saved.pages.length){
+    state.pages=saved.pages; state.settings=saved.settings||state.settings;
+  } else state=blankState();
   if(state.settings.adminPin==null)state.settings.adminPin='';
   state.pages.forEach(p=>p.els.forEach(e=>{if(e.k==='seat'){if(e.div==null)e.div='';if(e.team==null)e.team='';if(e.task==null)e.task='';}
     if(e.k==='shape'&&(e.fill==='#3a3d44'||e.wall)){e.fill='#0e0f12';e.stroke='#0e0f12';e.wall=true;}}));
   cur=clamp(cur,0,state.pages.length-1);
   hist.length=0;hist.push(JSON.stringify(state.pages));histi=0;
+  if(useSeed)save();
   applyMode();setTool('select');buildPages();render();fit();
   $('#hint').innerHTML="<b>시작하기</b> — 누구나 보는 <b>라이브</b> 화면입니다. 우측 <b>관리자</b>로 들어가면 도면을 그리고 데이터를 올릴 수 있어요. 관리자 툴바의 <b>‘불러오기’</b>로 시작해 보세요.";
 })();
