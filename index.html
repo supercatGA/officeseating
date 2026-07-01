@@ -300,9 +300,10 @@
   <p><b>사이트에서 관리하려면 이 버튼만 쓰면 돼요.</b> 현재 배치를 저장소 데이터 파일(<span class="mono">data.json</span>)로 바로 올려, 모든 방문자에게 반영합니다. (설정에서 GitHub 저장소·토큰을 먼저 입력하세요.)</p>
   <div style="margin:2px 0 14px;"><button class="primary" id="ghPublishBtn" style="width:100%;padding:12px;font-size:14px;">🌐 사이트에 게시 (GitHub에 저장)</button></div>
   <div style="border-top:1px solid var(--line);padding-top:12px;">
-    <p style="margin:0 0 8px;color:var(--sub);font-size:12px;">그 밖의 방법 — 데이터를 복사해 백업하거나, 다른 도면 데이터를 붙여넣어 불러오기. 또는 데이터를 통째로 담은 HTML 파일을 받아 최초 1회 업로드용으로 쓸 수 있어요.</p>
-    <textarea id="ioText" spellcheck="false"></textarea>
-    <div class="acts"><button id="ioCopy">복사</button><button id="ioLoad">붙여넣기 불러오기</button><button id="publishBtn">게시용 HTML 받기</button><button class="primary" id="ioClose">닫기</button></div>
+    <p style="margin:0 0 6px;"><b>다른 화면의 배치를 통째로 가져오기 (벽·좌석·이름 전체)</b></p>
+    <p style="margin:0 0 8px;color:var(--sub);font-size:12px;">① 배치가 <u>보이는 화면</u>에서 <b>복사</b>를 누르고 → ② 여기(예: 깃허브 관리자 페이지)에 붙여넣은 뒤 <b>붙여넣기 불러오기</b>. JSON은 물론 <b>HTML 파일 내용 전체</b>를 붙여넣어도 그 안의 배치를 자동으로 찾아 불러옵니다.</p>
+    <textarea id="ioText" spellcheck="false" placeholder="여기에 복사한 데이터(JSON) 또는 HTML 파일 내용을 붙여넣으세요"></textarea>
+    <div class="acts"><button id="ioCopy">현재 배치 복사</button><button class="primary" id="ioLoad">붙여넣기 불러오기</button><button id="publishBtn">게시용 HTML 받기</button><button id="ioClose">닫기</button></div>
   </div>
   <div style="margin-top:12px;border-top:1px solid var(--line);padding-top:12px;text-align:right;">
     <button class="btn ghost danger" id="resetAll" style="font-size:12px;color:#b14;border-color:#e3b3aa;">전부 비우기(빈 캔버스)</button>
@@ -1074,8 +1075,33 @@ function publishHTML(){
 }
 $('#publishBtn').onclick=publishHTML;
 $('#ghPublishBtn').onclick=ghPublish;
+function balancedFrom(text,i){ if(i<0)return null; let depth=0,inStr=false,esc=false;
+  for(let j=i;j<text.length;j++){const c=text[j];
+    if(inStr){if(esc)esc=false;else if(c==='\\')esc=true;else if(c==='"')inStr=false;}
+    else{if(c==='"')inStr=true;else if(c==='{')depth++;else if(c==='}'){depth--;if(depth===0)return text.slice(i,j+1);}}}
+  return null; }
+function tryParse(s){ try{return JSON.parse(s);}catch(_){try{return JSON.parse(s.replace(/\\u003c/g,'<'));}catch(e){return null;}} }
+function extractData(text){
+  text=(text||'').trim(); if(!text)return null;
+  let o=tryParse(text); if(o&&o.pages&&o.pages.length)return o;
+  let a=text.indexOf('__SEED__');
+  if(a>=0){ const st=text.indexOf('{',a); const js=balancedFrom(text,st); if(js){o=tryParse(js); if(o&&o.pages&&o.pages.length)return o;} }
+  let p=text.indexOf('"pages"');
+  while(p>=0){ const st=text.lastIndexOf('{',p); const js=balancedFrom(text,st); if(js){o=tryParse(js); if(o&&o.pages&&o.pages.length)return o;} p=text.indexOf('"pages"',p+6); }
+  return null;
+}
 $('#ioCopy').onclick=async()=>{try{await navigator.clipboard.writeText($('#ioText').value);toast('복사했어요');}catch(e){$('#ioText').select();toast('Ctrl+C 로 복사');}};
-$('#ioLoad').onclick=()=>{try{const o=JSON.parse($('#ioText').value);if(!o.pages)throw 0;snapshot();state.pages=o.pages;state.settings=o.settings||state.settings;cur=0;sel.clear();$('#ioModal').classList.remove('show');buildPages();render();fit();save();toast('불러왔어요');}catch(e){toast('형식이 올바르지 않아요');}};
+$('#ioLoad').onclick=()=>{
+  const o=extractData($('#ioText').value);
+  if(!o){toast('붙여넣은 내용에서 배치 데이터를 찾지 못했어요. 데이터가 보이는 화면에서 ‘복사’한 내용을 붙여넣어 주세요.');return;}
+  const nSeat=o.pages.reduce((a,p)=>a+(p.els||[]).filter(e=>e.k==='seat').length,0);
+  const nShape=o.pages.reduce((a,p)=>a+(p.els||[]).filter(e=>e.k!=='seat').length,0);
+  if(!confirm('현재 화면을 덮어쓰고 불러올까요?\n\n층 '+o.pages.length+'개 · 좌석 '+nSeat+'개 · 도형/벽 '+nShape+'개'))return;
+  snapshot();state.pages=o.pages;state.settings=Object.assign({},state.settings,o.settings||{});
+  cur=0;sel.clear();activeFilter=null;
+  $('#ioModal').classList.remove('show');buildPages();render();fit();save();
+  toast('불러왔어요 — 좌석 '+nSeat+' · 도형 '+nShape);
+};
 $('#resetAll').onclick=()=>{if(!confirm('모든 도형과 좌석을 지우고 빈 캔버스로 시작할까요?'))return;snapshot();state=blankState();cur=0;sel.clear();activeFilter=null;$('#ioModal').classList.remove('show');buildPages();render();fit();save();};
 document.querySelectorAll('.modal').forEach(m=>m.addEventListener('pointerdown',e=>{if(e.target===m)m.classList.remove('show');}));
 
